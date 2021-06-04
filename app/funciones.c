@@ -6,10 +6,9 @@
 #include "stm32f0xx_hal_rcc.h"
 #include "funciones.h"
 
-// #define TASK 1
 extern UART_HandleTypeDef UartHandle;
 uint8_t RxByte;
-uint8_t RxBuffer[20];
+uint8_t RxBuffer[20] = {0} ;
 
 extern __IO ITStatus uartState;
 extern __IO ITStatus status;

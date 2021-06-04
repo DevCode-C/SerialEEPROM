@@ -51,3 +51,9 @@ void USART2_IRQHandler(void)
 {
     HAL_UART_IRQHandler(&UartHandle);
 }
+
+extern SPI_HandleTypeDef SpiHandle;
+void SPI1_IRQHandler(void)
+{
+    HAL_SPI_IRQHandler(&SpiHandle);
+}

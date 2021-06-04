@@ -48,3 +48,27 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
     HAL_NVIC_SetPriority(USART2_IRQn,1,0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
+
+void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
+{
+    GPIO_InitTypeDef GPIO_InitStructure;
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_SPI1_CLK_ENABLE();
+
+    GPIO_InitStructure.Pin          = GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
+    GPIO_InitStructure.Mode         = GPIO_MODE_AF_PP;
+    GPIO_InitStructure.Pull         = GPIO_PULLUP;
+    GPIO_InitStructure.Speed        = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Alternate    = GPIO_AF0_SPI1;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    GPIO_InitStructure.Pin          = GPIO_PIN_10;
+    GPIO_InitStructure.Mode         = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStructure.Pull         = GPIO_NOPULL;
+    GPIO_InitStructure.Speed        = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    HAL_NVIC_SetPriority(SPI1_IRQn,2,0);
+    HAL_NVIC_EnableIRQ(SPI1_IRQn);
+
+}

@@ -4,6 +4,7 @@
 
 void USART2_IRQHandler(void);
 
+void SPI1_IRQHandler(void);
 
 #endif
 
