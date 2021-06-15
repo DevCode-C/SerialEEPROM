@@ -24,6 +24,8 @@ uint8_t RxBuffer[20];
 uint8_t RxBufferSPI[2], TxBufferSPI[4];
 
 const uint8_t *mensaje = {(uint8_t*)"Hola mundo en mi eeprom"};
+const uint8_t* msgOk   =    (uint8_t*)"OK\n";
+const uint8_t *comando = {(uint8_t*)"WRITE"};
 
 #define CS      GPIO_PIN_10
 #define READ    3U
@@ -44,23 +46,32 @@ uint8_t read_byte(uint16_t addr);
 void write_data(uint16_t addr, uint8_t *data, uint8_t size);
 void read_data(uint16_t addr, uint8_t *data, uint8_t size);
 
-uint32_t tickTimer = 0;
+HAL_StatusTypeDef correctComand(uint8_t * buffer, uint16_t * addr, uint8_t* byte);
 
+uint32_t tickTimer = 0;
+uint16_t addr = 0;
+uint8_t byte = 0;
 int main( void )
 {
     HAL_Init( );
     UART_Init();
     SPI_Init();
-    static uint16_t memoryCount = 0;
     tickTimer = HAL_GetTick();
     for (; ;)
     {
-        write_data(memoryCount,(uint8_t*)mensaje,strlen((const char *)mensaje));
-        memoryCount += strlen((const char *)mensaje);
-        if (memoryCount > 4096)
+
+        if (status == SET)
         {
-            memoryCount = 0;
+            status = RESET;
+            if(correctComand(RxBuffer,&addr,&byte) == HAL_OK)
+            {
+                write_byte(addr,byte);
+                TxBufferSPI[0] = read_byte(addr);
+                strcat((char*)TxBufferSPI,"\n");
+                HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)TxBufferSPI,2);
+            }
         }
+        
 
         if (HAL_GetTick() - tickTimer > 100)
         {
@@ -173,7 +184,74 @@ void read_data(uint16_t addr, uint8_t *data, uint8_t size)
     
 }
 
+HAL_StatusTypeDef correctComand(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
+{
+    uint8_t * comando_check = NULL;
+    uint8_t * addres = NULL;
+    uint8_t * byteInput = NULL;
+    HAL_StatusTypeDef flag = HAL_ERROR;
 
+    comando_check = (uint8_t*)strtok((char*)buffer," ");
+    addres = (uint8_t*)strtok(NULL, " ");
+    byteInput = (uint8_t*)strtok(NULL, " ");
+
+    if (strcmp((const char*)comando_check,(const char*)comando) == 0)
+    {
+        flag = HAL_OK;
+    }
+
+    flag = HAL_ERROR;
+    if (addres != NULL)
+    {
+        uint8_t i = 0;
+        while (addres[i] != '\0')
+        {
+            if (addres[i] >= '0' && addres[i] <= '9')
+            {
+                flag = HAL_OK;
+            }
+            else if (addres[i] == '\r')
+            {
+                flag = HAL_OK;
+                break;
+            }
+            else
+            {
+                flag = HAL_ERROR;
+                break;
+            }
+            i++;
+        }
+        if (flag != HAL_ERROR)
+        {
+            flag = HAL_ERROR;
+            *addr = atoi((const char*)addres);
+            if (*addr >= 0 && *addr <= 4096)
+            {
+                flag = HAL_OK;
+            }   
+        }  
+    }
+
+    if (byteInput != NULL && flag != HAL_ERROR)
+    {
+        if (byteInput[0] == '\r' || byteInput[0] == '\0')
+        {
+            flag = HAL_ERROR;    
+        }
+        else
+        {
+            *byte = byteInput[0];
+            flag = HAL_OK;    
+        }
+    }
+    
+    if (strtok(NULL," ") != NULL)
+    {
+        flag  = HAL_ERROR;
+    }
+    return flag;
+}
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
