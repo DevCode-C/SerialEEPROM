@@ -43,6 +43,8 @@ uint8_t read_byte(uint16_t addr);
 void write_data(uint16_t addr, uint8_t *data, uint8_t size);
 void read_data(uint16_t addr, uint8_t *data, uint8_t size);
 
+uint32_t tickTimer = 0;
+
 int main( void )
 {
     HAL_Init( );
@@ -56,12 +58,18 @@ int main( void )
     
     write_data(30,(uint8_t*)"Hola mundo y adios\n",strlen("Hola mundo y adios\n"));
 
-    read_data(25,RxBuffer,19);
+    read_data(30,RxBuffer,19);
 
     HAL_UART_Transmit_IT(&UartHandle,RxBuffer,strlen((const char*)RxBuffer));
+    tickTimer = HAL_GetTick();
     for (; ;)
     {
-
+        if (HAL_GetTick() - tickTimer > 100)
+        {
+            tickTimer = HAL_GetTick();
+            HAL_GPIO_TogglePin(GPIOA,GPIO_PIN_5);
+        }
+        
     } 
     return 0u;
 }
@@ -70,7 +78,7 @@ int main( void )
 void UART_Init()
 {
     UartHandle.Instance             = USART2;
-    UartHandle.Init.BaudRate        = 9600;
+    UartHandle.Init.BaudRate        = 115200;
     UartHandle.Init.WordLength      = UART_WORDLENGTH_8B;
     UartHandle.Init.StopBits        = UART_STOPBITS_1;
     UartHandle.Init.Parity          = UART_PARITY_NONE;
