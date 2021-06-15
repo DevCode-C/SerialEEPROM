@@ -34,8 +34,14 @@ uint8_t RxBufferSPI[2], TxBufferSPI[4];
 
 
 
-void UART_Init(void);
+void UART_Init(void); 
 void SPI_Init(void);
+
+void write_byte(uint16_t addr, uint8_t data);
+uint8_t read_byte(uint16_t addr);
+
+void write_data(uint16_t addr, uint8_t *data, uint8_t size);
+void read_data(uint16_t addr, uint8_t *data, uint8_t size);
 
 int main( void )
 {
@@ -43,33 +49,16 @@ int main( void )
     UART_Init();
     SPI_Init();
 
+    // write_byte(0,0x1F);
     
-    HAL_GPIO_WritePin(GPIOB,CS,RESET);
-    TxBufferSPI[0] = 0x06;
-    HAL_SPI_Transmit(&SpiHandle,TxBufferSPI,1,5000);
-    HAL_GPIO_WritePin(GPIOB,CS,SET);
+    // HAL_GPIO_WritePin(GPIOC,0xFF,RESET);
+    // HAL_GPIO_WritePin(GPIOC,read_byte(0),SET);
+    
+    write_data(30,(uint8_t*)"Hola mundo y adios\n",strlen("Hola mundo y adios\n"));
 
-    HAL_GPIO_WritePin(GPIOB,CS,RESET);
-    TxBufferSPI[0] = 0x02; 
-    TxBufferSPI[1] = 0x00;
-    TxBufferSPI[2] = 0x00;
-    TxBufferSPI[3] = 0x05;
-    HAL_SPI_Transmit(&SpiHandle,TxBufferSPI,4,5000);
-    HAL_GPIO_WritePin(GPIOB,CS,SET);
+    read_data(25,RxBuffer,19);
 
-    HAL_Delay(10);
-
-    HAL_GPIO_WritePin(GPIOB,CS,RESET);
-    TxBufferSPI[0] = 0x03; 
-    TxBufferSPI[1] = 0x00;
-    TxBufferSPI[2] = 0x00;
-    HAL_SPI_Transmit(&SpiHandle,TxBufferSPI,3,5000);
-    HAL_SPI_Receive(&SpiHandle,RxBufferSPI,1,5000);
-    HAL_GPIO_WritePin(GPIOB,CS,SET);
-
-    HAL_GPIO_WritePin(GPIOC,0xFF,RESET);
-    HAL_GPIO_WritePin(GPIOC,RxBufferSPI[0],SET);
-
+    HAL_UART_Transmit_IT(&UartHandle,RxBuffer,strlen((const char*)RxBuffer));
     for (; ;)
     {
 
@@ -111,6 +100,73 @@ void SPI_Init(void)
     HAL_GPIO_WritePin(GPIOB,CS,SET);
     HAL_SPI_Init(&SpiHandle);
 }
+
+void write_byte(uint16_t addr, uint8_t data)
+{
+    uint8_t Tx_B_SPI[4] = {0};
+    uint8_t Rx_SPI = 0;
+
+    //Habilita la escritura
+    HAL_GPIO_WritePin(GPIOB,CS,RESET);
+    Tx_B_SPI[0] = WREN;
+    HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+    HAL_GPIO_WritePin(GPIOB,CS,SET);    
+
+    //Manda la intruccion, direccion y dato
+    HAL_GPIO_WritePin(GPIOB,CS,RESET);
+    Tx_B_SPI[0] = WRITE; 
+    Tx_B_SPI[1] = (uint8_t)(addr>>8);
+    Tx_B_SPI[2] = (uint8_t)(addr);
+    Tx_B_SPI[3] = data;
+    HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,4);
+    HAL_GPIO_WritePin(GPIOB,CS,SET);
+
+    // Pregunta si ya termino de escribir en memoria
+    do
+    {
+        HAL_GPIO_WritePin(GPIOB,CS,RESET);
+        Tx_B_SPI[0] = RDSR;
+        HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+        HAL_SPI_Receive(&SpiHandle,&Rx_SPI,1,1000);
+        HAL_GPIO_WritePin(GPIOB,CS,SET); 
+    }while(Rx_SPI == 3);
+
+    // HAL_Delay(10);
+}
+
+uint8_t read_byte(uint16_t addr)
+{
+    uint8_t Rx_b_SPI[4] = {0};
+    uint8_t Rx__SPI[2] = {0};
+    HAL_GPIO_WritePin(GPIOB,CS,RESET);
+    Rx_b_SPI[0] = 0x03; 
+    Rx_b_SPI[1] = (uint8_t)(addr>>8);
+    Rx_b_SPI[2] = (uint8_t)(addr);
+    HAL_SPI_Transmit_IT(&SpiHandle,Rx_b_SPI,3);
+    HAL_SPI_Receive(&SpiHandle,Rx__SPI,1,5000);
+    HAL_GPIO_WritePin(GPIOB,CS,SET);
+
+    return Rx__SPI[0];
+}
+
+void write_data(uint16_t addr, uint8_t *data, uint8_t size)
+{
+    for (uint8_t i = 0; i < size; i++)
+    {
+        write_byte(addr+i,data[i]);
+    }
+    
+}
+
+void read_data(uint16_t addr, uint8_t *data, uint8_t size)
+{
+    for (uint8_t i = 0; i < size; i++)
+    {
+        data[i] = read_byte(addr+i);
+    }
+    
+}
+
 
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
