@@ -331,6 +331,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     uartState = SET;
     memset(RxBuffer,0,sizeof(RxBuffer));
+    memset(BufferRead,0,sizeof(BufferRead));
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
