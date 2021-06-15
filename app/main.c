@@ -21,7 +21,8 @@ __IO ITStatus status = RESET;
 
 uint8_t RxByte;
 uint8_t RxBuffer[20];
-uint8_t RxBufferSPI[2], TxBufferSPI[4];
+uint8_t BufferRead[34];
+uint8_t TxBufferSPI[3];
 
 const uint8_t *mensaje = {(uint8_t*)"Hola mundo en mi eeprom"};
 const uint8_t* msgOk   =    (uint8_t*)"OK\n";
@@ -79,7 +80,9 @@ int main( void )
                 if (uartState == SET)
                 {
                     uartState = RESET;
-                    HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)msgOk,strlen((const char*)msgOk));
+                    read_data(addr*32,BufferRead,32);
+                    strcat((char*)BufferRead,"\n");
+                    HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)BufferRead,strlen((const char*)BufferRead));
                 }
             }
         }
@@ -283,9 +286,10 @@ HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr)
         flag = HAL_OK;
     }
 
-    flag = HAL_ERROR;
-    if (addres != NULL)
+    
+    if (addres != NULL && flag != HAL_ERROR)
     {
+        flag = HAL_ERROR;
         uint8_t i = 0;
         while (addres[i] != '\0')
         {
