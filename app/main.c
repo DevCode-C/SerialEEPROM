@@ -23,6 +23,7 @@ uint8_t RxByte;
 uint8_t RxBuffer[20];
 uint8_t RxBufferSPI[2], TxBufferSPI[4];
 
+const uint8_t *mensaje = {(uint8_t*)"Hola mundo en mi eeprom"};
 
 #define CS      GPIO_PIN_10
 #define READ    3U
@@ -50,20 +51,17 @@ int main( void )
     HAL_Init( );
     UART_Init();
     SPI_Init();
-
-    // write_byte(0,0x1F);
-    
-    // HAL_GPIO_WritePin(GPIOC,0xFF,RESET);
-    // HAL_GPIO_WritePin(GPIOC,read_byte(0),SET);
-    
-    write_data(30,(uint8_t*)"Hola mundo y adios\n",strlen("Hola mundo y adios\n"));
-
-    read_data(30,RxBuffer,19);
-
-    HAL_UART_Transmit_IT(&UartHandle,RxBuffer,strlen((const char*)RxBuffer));
+    static uint16_t memoryCount = 0;
     tickTimer = HAL_GetTick();
     for (; ;)
     {
+        write_data(memoryCount,(uint8_t*)mensaje,strlen((const char *)mensaje));
+        memoryCount += strlen((const char *)mensaje);
+        if (memoryCount > 4096)
+        {
+            memoryCount = 0;
+        }
+
         if (HAL_GetTick() - tickTimer > 100)
         {
             tickTimer = HAL_GetTick();
