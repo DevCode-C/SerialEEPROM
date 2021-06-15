@@ -16,7 +16,7 @@ Brief.- Punto de entrada del programa
 UART_HandleTypeDef UartHandle;
 SPI_HandleTypeDef SpiHandle;
 
-__IO ITStatus uartState = RESET;
+__IO ITStatus uartState = SET;
 __IO ITStatus status = RESET;
 
 uint8_t RxByte;
@@ -25,7 +25,8 @@ uint8_t RxBufferSPI[2], TxBufferSPI[4];
 
 const uint8_t *mensaje = {(uint8_t*)"Hola mundo en mi eeprom"};
 const uint8_t* msgOk   =    (uint8_t*)"OK\n";
-const uint8_t *comando = {(uint8_t*)"WRITE"};
+const uint8_t *comando_Write = {(uint8_t*)"WRITE"};
+const uint8_t *comando_Read  = {(uint8_t*)"READ"};
 
 #define CS      GPIO_PIN_10
 #define READ    3U
@@ -46,7 +47,8 @@ uint8_t read_byte(uint16_t addr);
 void write_data(uint16_t addr, uint8_t *data, uint8_t size);
 void read_data(uint16_t addr, uint8_t *data, uint8_t size);
 
-HAL_StatusTypeDef correctComand(uint8_t * buffer, uint16_t * addr, uint8_t* byte);
+HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte);
+HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr);
 
 uint32_t tickTimer = 0;
 uint16_t addr = 0;
@@ -63,12 +65,22 @@ int main( void )
         if (status == SET)
         {
             status = RESET;
-            if(correctComand(RxBuffer,&addr,&byte) == HAL_OK)
+            addr = 0;
+            byte = 0;
+            if(correctComand_Write(RxBuffer,&addr,&byte) == HAL_OK)
             {
                 write_byte(addr,byte);
                 TxBufferSPI[0] = read_byte(addr);
                 strcat((char*)TxBufferSPI,"\n");
                 HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)TxBufferSPI,2);
+            }
+            else if (correctComand_Read(RxBuffer,&addr) == HAL_OK)
+            {
+                if (uartState == SET)
+                {
+                    uartState = RESET;
+                    HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)msgOk,strlen((const char*)msgOk));
+                }
             }
         }
         
@@ -184,25 +196,27 @@ void read_data(uint16_t addr, uint8_t *data, uint8_t size)
     
 }
 
-HAL_StatusTypeDef correctComand(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
+HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
 {
+    uint8_t bufferTemp[20] ={0};
+    strcpy((char*)bufferTemp,(const char*)buffer);
     uint8_t * comando_check = NULL;
     uint8_t * addres = NULL;
     uint8_t * byteInput = NULL;
     HAL_StatusTypeDef flag = HAL_ERROR;
 
-    comando_check = (uint8_t*)strtok((char*)buffer," ");
+    comando_check = (uint8_t*)strtok((char*)bufferTemp," ");
     addres = (uint8_t*)strtok(NULL, " ");
     byteInput = (uint8_t*)strtok(NULL, " ");
 
-    if (strcmp((const char*)comando_check,(const char*)comando) == 0)
+    if (strcmp((const char*)comando_check,(const char*)comando_Write) == 0)
     {
         flag = HAL_OK;
     }
 
-    flag = HAL_ERROR;
-    if (addres != NULL)
+    if (addres != NULL && flag != HAL_ERROR)
     {
+        flag = HAL_ERROR;
         uint8_t i = 0;
         while (addres[i] != '\0')
         {
@@ -244,6 +258,62 @@ HAL_StatusTypeDef correctComand(uint8_t * buffer, uint16_t * addr, uint8_t* byte
             *byte = byteInput[0];
             flag = HAL_OK;    
         }
+    }
+    
+    if (strtok(NULL," ") != NULL)
+    {
+        flag  = HAL_ERROR;
+    }
+    return flag;
+}
+
+HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr)
+{
+    uint8_t bufferTemp[20] ={0};
+    strcpy((char*)bufferTemp,(const char*)buffer);
+    uint8_t * comando_check = NULL;
+    uint8_t * addres = NULL;
+    HAL_StatusTypeDef flag = HAL_ERROR;
+
+    comando_check = (uint8_t*)strtok((char*)bufferTemp," ");
+    addres = (uint8_t*)strtok(NULL, " ");
+
+    if (strcmp((const char*)comando_check,(const char*)comando_Read) == 0)
+    {
+        flag = HAL_OK;
+    }
+
+    flag = HAL_ERROR;
+    if (addres != NULL)
+    {
+        uint8_t i = 0;
+        while (addres[i] != '\0')
+        {
+            if (addres[i] >= '0' && addres[i] <= '9')
+            {
+                flag = HAL_OK;
+            }
+            else if (addres[i] == '\r')
+            {
+                flag = HAL_OK;
+                break;
+            }
+            else
+            {
+                flag = HAL_ERROR;
+                break;
+            }
+            i++;
+        }
+        if (flag != HAL_ERROR)
+        {
+            flag = HAL_ERROR;
+            *addr = atoi((const char*)addres);
+            if (*addr >= 0 && *addr <= 128)
+            {
+                flag = HAL_OK;
+            }   
+        }  
     }
     
     if (strtok(NULL," ") != NULL)
