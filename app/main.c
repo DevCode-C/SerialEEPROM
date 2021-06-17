@@ -190,14 +190,13 @@ void write_data(uint16_t addr, uint8_t *data, uint8_t size)
         {
             addr = 0;
             write_byte(addr,data[counter]);
-            addr += 1;
         }
         else
         {
             
             write_byte(addr,data[counter]);
-            addr += 1;
         }
+        addr += 1;
         counter++;
     } 
 }
@@ -211,14 +210,13 @@ void read_data(uint16_t addr, uint8_t *data, uint8_t size)
         {
             addr = 0;
             data[counter] = read_byte(addr);
-            addr += 1;
         }
         else
         {
             
             data[counter] = read_byte(addr);
-            addr += 1;
         }
+        addr += 1;
         counter++;
     } 
 }
