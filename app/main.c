@@ -183,28 +183,44 @@ uint8_t read_byte(uint16_t addr)
 
 void write_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
-    for (uint8_t i = 0; i < size; i++)
+    uint16_t counter = 0; 
+    while (counter < size)
     {
         if (addr > 4095)
         {
             addr = 0;
+            write_byte(addr,data[counter]);
+            addr += 1;
         }
-        write_byte(addr+i,data[i]);
-    }
-    
+        else
+        {
+            
+            write_byte(addr,data[counter]);
+            addr += 1;
+        }
+        counter++;
+    } 
 }
 
 void read_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
-    for (uint8_t i = 0; i < size; i++)
+    uint16_t counter = 0; 
+    while (counter < size)
     {
-        if(addr > 4095)
+        if (addr > 4095)
         {
             addr = 0;
+            data[counter] = read_byte(addr);
+            addr += 1;
         }
-        data[i] = read_byte(addr+i);
-    }
-    
+        else
+        {
+            
+            data[counter] = read_byte(addr);
+            addr += 1;
+        }
+        counter++;
+    } 
 }
 
 HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
@@ -243,6 +259,7 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
             else
             {
                 flag = HAL_ERROR;
+                memset(RxBuffer,0,sizeof(RxBuffer));
                 break;
             }
             i++;
@@ -262,7 +279,8 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
     {
         if (byteInput[0] == '\r' || byteInput[0] == '\0')
         {
-            flag = HAL_ERROR;    
+            flag = HAL_ERROR;
+            memset(RxBuffer,0,sizeof(RxBuffer));    
         }
         else
         {
@@ -274,6 +292,7 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
     if (strtok(NULL," ") != NULL)
     {
         flag  = HAL_ERROR;
+        memset(RxBuffer,0,sizeof(RxBuffer));
     }
     return flag;
 }
@@ -321,7 +340,7 @@ HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr)
         {
             flag = HAL_ERROR;
             *addr = atoi((const char*)addres);
-            if (*addr >= 0 && *addr <= 128)
+            if (*addr >= 0 && *addr <= 127)
             {
                 flag = HAL_OK;
             }   
