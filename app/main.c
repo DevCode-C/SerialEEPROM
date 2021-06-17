@@ -266,7 +266,7 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
         {
             flag = HAL_ERROR;
             *addr = atoi((const char*)addres);
-            if (*addr >= 0 && *addr <= 4096)
+            if (*addr >= 0 && *addr <= 4095)
             {
                 flag = HAL_OK;
             }   
