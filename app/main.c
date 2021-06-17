@@ -185,7 +185,7 @@ void write_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
     for (uint8_t i = 0; i < size; i++)
     {
-        if (addr > 4096)
+        if (addr > 4095)
         {
             addr = 0;
         }
@@ -198,6 +198,10 @@ void read_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
     for (uint8_t i = 0; i < size; i++)
     {
+        if(addr > 4095)
+        {
+            addr = 0;
+        }
         data[i] = read_byte(addr+i);
     }
     
