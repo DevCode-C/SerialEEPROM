@@ -184,29 +184,44 @@ uint8_t read_byte(uint16_t addr)
 
 void write_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
-    for (uint8_t i = 0; i < size; i++)
+    uint16_t counter = 0; 
+    while (counter < size)
     {
         if (addr > 4095)
         {
             addr = 0;
+            write_byte(addr,data[counter]);
         }
-        write_byte(addr+i,data[i]);
-    }
-    
+        else
+        {
+            
+            write_byte(addr,data[counter]);
+        }
+        addr += 1;
+        counter++;
+    } 
 }
 
 void read_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
-    for (uint8_t i = 0; i < size; i++)
+    uint16_t counter = 0; 
+    while (counter < size)
     {
-        if(addr > 4095)
+        if (addr > 4095)
         {
             addr = 0;
+            data[counter] = read_byte(addr);
         }
-        data[i] = read_byte(addr+i);
-    }
-    
+        else
+        {
+            
+            data[counter] = read_byte(addr);
+        }
+        addr += 1;
+        counter++;
+    } 
 }
+
 int16_t ConversionHex_to_Dec(char character)
 {
     if (isdigit(character))
@@ -239,43 +254,6 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
     if (addres != NULL && flag != HAL_ERROR)
     {
         flag = HAL_ERROR;
-        // uint8_t i = 0;
-        // while (addres[i] != '\0')
-        // {
-
-        //     // if ((addres[i] >= 'a' && addres[i] <= 'f') || (addres[i] >= 'A' && addres[i] <= 'F'))
-        //     if (toupper(addres[i]) >= 'A' && toupper(addres[i]) <= 'F')
-        //     {
-        //         flag = HAL_OK;
-        //         if (i>0)
-        //         {
-        //             *addr = *addr << 4;
-        //         }
-        //         *addr += ConversionHex_to_Dec(addres[i]);
-                
-        //     }
-        //     else if ((addres[i] >= '0' && addres[i] <= '9'))
-        //     {
-        //         flag = HAL_OK;
-        //         if (i>0)
-        //         {
-        //             *addr = *addr << 4;
-        //         }
-        //         *addr += ConversionHex_to_Dec(addres[i]);
-        //     }
-        //     else if (addres[i] == '\r')
-        //     {
-        //         flag = HAL_OK;
-        //         break;
-        //     }
-        //     else
-        //     {
-        //         flag = HAL_ERROR;
-        //         *addr = 0;
-        //         break;
-        //     }
-        //     i++;
-        // }
         for (uint8_t i = 0; i < strlen((const char*)addres); i++)
         {
             flag = HAL_OK;
@@ -293,8 +271,6 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
                 }
                 addrTemp += ConversionHex_to_Dec(addres[i]);
             }
-            
-            
         }
 
         if(flag != HAL_ERROR)
@@ -333,6 +309,7 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
 HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr)
 {
     uint8_t bufferTemp[20] ={0};
+    uint8_t addrTemp = 0;
     strcpy((char*)bufferTemp,(const char*)buffer);
     uint8_t * comando_check = NULL;
     uint8_t * addres = NULL;
@@ -350,34 +327,40 @@ HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr)
     if (addres != NULL && flag != HAL_ERROR)
     {
         flag = HAL_ERROR;
-        uint8_t i = 0;
-        while (addres[i] != '\0')
+        for (uint8_t i = 0; i < strlen((const char*)addres); i++)
         {
-            if (addres[i] >= '0' && addres[i] <= '9')
+            flag = HAL_OK;
+            if (toupper(addres[i]) > 'F' && !isdigit(addres[i]))
             {
-                flag = HAL_OK;
+                flag = HAL_ERROR;
+                memset(RxBuffer,0,sizeof(RxBuffer));
+                break;
             }
             else if (addres[i] == '\r')
             {
                 flag = HAL_OK;
                 break;
             }
+            
             else
             {
-                flag = HAL_ERROR;
-                break;
+                if (i>0)
+                {
+                addrTemp = addrTemp << 4;
+                }
+                addrTemp += ConversionHex_to_Dec(addres[i]);
             }
-            i++;
         }
-        if (flag != HAL_ERROR)
+
+        if(flag != HAL_ERROR)
         {
             flag = HAL_ERROR;
-            *addr = atoi((const char*)addres);
-            if (*addr >= 0 && *addr <= 127)
+            if (addrTemp >= 0 && addrTemp <= 127)
             {
+                *addr = addrTemp;
                 flag = HAL_OK;
-            }   
-        }  
+            }
+        }    
     }
     
     if (strtok(NULL," ") != NULL)
