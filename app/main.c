@@ -185,6 +185,10 @@ void write_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
     for (uint8_t i = 0; i < size; i++)
     {
+        if (addr > 4096)
+        {
+            addr = 0;
+        }
         write_byte(addr+i,data[i]);
     }
     
