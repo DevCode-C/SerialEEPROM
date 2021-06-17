@@ -50,6 +50,7 @@ void read_data(uint16_t addr, uint8_t *data, uint8_t size);
 
 HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte);
 HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr);
+int16_t ConversionHex_to_Dec(char character);
 
 uint32_t tickTimer = 0;
 uint16_t addr = 0;
@@ -206,10 +207,20 @@ void read_data(uint16_t addr, uint8_t *data, uint8_t size)
     }
     
 }
+int16_t ConversionHex_to_Dec(char character)
+{
+    if (isdigit(character))
+    {
+        return character - '0';
+    }
+    return (10 +(toupper(character) - 'A'));
+    
+}
 
 HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
 {
     uint8_t bufferTemp[20] ={0};
+    uint8_t addrTemp = 0;
     strcpy((char*)bufferTemp,(const char*)buffer);
     uint8_t * comando_check = NULL;
     uint8_t * addres = NULL;
@@ -228,41 +239,81 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
     if (addres != NULL && flag != HAL_ERROR)
     {
         flag = HAL_ERROR;
-        uint8_t i = 0;
-        while (addres[i] != '\0')
+        // uint8_t i = 0;
+        // while (addres[i] != '\0')
+        // {
+
+        //     // if ((addres[i] >= 'a' && addres[i] <= 'f') || (addres[i] >= 'A' && addres[i] <= 'F'))
+        //     if (toupper(addres[i]) >= 'A' && toupper(addres[i]) <= 'F')
+        //     {
+        //         flag = HAL_OK;
+        //         if (i>0)
+        //         {
+        //             *addr = *addr << 4;
+        //         }
+        //         *addr += ConversionHex_to_Dec(addres[i]);
+                
+        //     }
+        //     else if ((addres[i] >= '0' && addres[i] <= '9'))
+        //     {
+        //         flag = HAL_OK;
+        //         if (i>0)
+        //         {
+        //             *addr = *addr << 4;
+        //         }
+        //         *addr += ConversionHex_to_Dec(addres[i]);
+        //     }
+        //     else if (addres[i] == '\r')
+        //     {
+        //         flag = HAL_OK;
+        //         break;
+        //     }
+        //     else
+        //     {
+        //         flag = HAL_ERROR;
+        //         *addr = 0;
+        //         break;
+        //     }
+        //     i++;
+        // }
+        for (uint8_t i = 0; i < strlen((const char*)addres); i++)
         {
-            if (addres[i] >= '0' && addres[i] <= '9')
+            flag = HAL_OK;
+            if (toupper(addres[i]) > 'F' && !isdigit(addres[i]))
             {
-                flag = HAL_OK;
-            }
-            else if (addres[i] == '\r')
-            {
-                flag = HAL_OK;
+                flag = HAL_ERROR;
+                memset(RxBuffer,0,sizeof(RxBuffer));
                 break;
             }
             else
             {
-                flag = HAL_ERROR;
-                break;
+                if (i>0)
+                {
+                addrTemp = addrTemp << 4;
+                }
+                addrTemp += ConversionHex_to_Dec(addres[i]);
             }
-            i++;
+            
+            
         }
-        if (flag != HAL_ERROR)
+
+        if(flag != HAL_ERROR)
         {
             flag = HAL_ERROR;
-            *addr = atoi((const char*)addres);
-            if (*addr >= 0 && *addr <= 4096)
+            if (addrTemp >= 0 && addrTemp <= 4095)
             {
+                *addr = addrTemp;
                 flag = HAL_OK;
-            }   
-        }  
+            }
+        }    
     }
 
     if (byteInput != NULL && flag != HAL_ERROR)
     {
         if (byteInput[0] == '\r' || byteInput[0] == '\0')
         {
-            flag = HAL_ERROR;    
+            flag = HAL_ERROR;
+            memset(RxBuffer,0,sizeof(RxBuffer));   
         }
         else
         {
@@ -274,6 +325,7 @@ HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t
     if (strtok(NULL," ") != NULL)
     {
         flag  = HAL_ERROR;
+        memset(RxBuffer,0,sizeof(RxBuffer));
     }
     return flag;
 }
@@ -321,7 +373,7 @@ HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr)
         {
             flag = HAL_ERROR;
             *addr = atoi((const char*)addres);
-            if (*addr >= 0 && *addr <= 128)
+            if (*addr >= 0 && *addr <= 127)
             {
                 flag = HAL_OK;
             }   
