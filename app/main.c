@@ -235,7 +235,7 @@ int16_t ConversionHex_to_Dec(char character)
 HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
 {
     uint8_t bufferTemp[20] ={0};
-    uint8_t addrTemp = 0;
+    uint16_t addrTemp = 0;
     strcpy((char*)bufferTemp,(const char*)buffer);
     uint8_t * comando_check = NULL;
     uint8_t * addres = NULL;
