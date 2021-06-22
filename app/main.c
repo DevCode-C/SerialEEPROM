@@ -1,3 +1,4 @@
+#include "stdio.h"
 #include "stm32f0xx.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 #include "stm32f0xx_hal.h"
 #include "funciones.h"
 #include <ctype.h>
+
 /**------------------------------------------------------------------------------------------------
 Brief.- Punto de entrada del programa
 -------------------------------------------------------------------------------------------------*/
@@ -25,6 +27,7 @@ uint8_t BufferRead[34];
 uint8_t TxBufferSPI[3];
 
 const uint8_t *mensaje = {(uint8_t*)"Hola mundo en mi eeprom"};
+const uint8_t *mensajeTest = {(uint8_t*)"Probando la nueva funcion pero sin tener tantos resultados, a ver como nos va con todo esto jajajajaja"};
 const uint8_t* msgOk   =    (uint8_t*)"OK\n";
 const uint8_t *comando_Write = {(uint8_t*)"WRITE"};
 const uint8_t *comando_Read  = {(uint8_t*)"READ"};
@@ -37,6 +40,7 @@ const uint8_t *comando_Read  = {(uint8_t*)"READ"};
 #define RDSR    5U
 #define WRSR    1U
 
+#define CHECK_SIZE(addr)  (32 - (addr % 32))
 
 
 void UART_Init(void); 
@@ -48,14 +52,19 @@ uint8_t read_byte(uint16_t addr);
 void write_data(uint16_t addr, uint8_t *data, uint8_t size);
 void read_data(uint16_t addr, uint8_t *data, uint8_t size);
 
+uint8_t write_nData(uint16_t addr, uint8_t *data, uint8_t size);
+
 HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte);
 HAL_StatusTypeDef correctComand_Read(uint8_t * buffer, uint16_t * addr);
+extern void initialise_monitor_handles(void);
 
 uint32_t tickTimer = 0;
 uint16_t addr = 0;
 uint8_t byte = 0;
 int main( void )
 {
+    initialise_monitor_handles();
+    printf("\n");
     HAL_Init( );
     UART_Init();
     SPI_Init();
@@ -70,10 +79,17 @@ int main( void )
             byte = 0;
             if(correctComand_Write(RxBuffer,&addr,&byte) == HAL_OK)
             {
-                write_byte(addr,byte);
-                TxBufferSPI[0] = read_byte(addr);
-                strcat((char*)TxBufferSPI,"\n");
-                HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)TxBufferSPI,2);
+                // write_byte(addr,byte);
+                // TxBufferSPI[0] = read_byte(addr);
+                // strcat((char*)TxBufferSPI,"\n");
+                // HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)TxBufferSPI,2);
+
+                if (write_nData(4050,(uint8_t*)mensajeTest,strlen((const char*)mensajeTest)) == 0)
+                {
+                    HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_5);
+                    HAL_UART_Transmit_IT(&UartHandle,(uint8_t*)msgOk,strlen((const char*)msgOk));
+                }
+                
             }
             else if (correctComand_Read(RxBuffer,&addr) == HAL_OK)
             {
@@ -161,7 +177,7 @@ void write_byte(uint16_t addr, uint8_t data)
         HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
         HAL_SPI_Receive(&SpiHandle,&Rx_SPI,1,1000);
         HAL_GPIO_WritePin(GPIOB,CS,SET); 
-    }while(Rx_SPI == 3);
+    }while(Rx_SPI&1);
 
     // HAL_Delay(10);
 }
@@ -183,42 +199,140 @@ uint8_t read_byte(uint16_t addr)
 
 void write_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
-    uint16_t counter = 0; 
-    while (counter < size)
+    uint8_t Tx_B_SPI[4] = {0};
+
+    //Habilita la escritura
+    HAL_GPIO_WritePin(GPIOB,CS,RESET);
+    Tx_B_SPI[0] = WREN;
+    HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+    HAL_GPIO_WritePin(GPIOB,CS,SET);    
+
+    //Manda la intruccion, direccion y datos
+    HAL_GPIO_WritePin(GPIOB,CS,RESET);
+    Tx_B_SPI[0] = WRITE; 
+    Tx_B_SPI[1] = (uint8_t)(addr>>8);
+    Tx_B_SPI[2] = (uint8_t)(addr);
+    HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,3);
+    for (uint8_t i = 0; i < size; i++)
     {
-        if (addr > 4095)
+        Tx_B_SPI[3] = data[i];
+        HAL_SPI_Transmit_IT(&SpiHandle,&Tx_B_SPI[3],1);   
+    }  
+    HAL_GPIO_WritePin(GPIOB,CS,SET);
+    HAL_Delay(5);
+}
+
+uint8_t write_nData(uint16_t addr, uint8_t *data, uint8_t size)
+{
+    uint8_t flag = 0;
+    uint8_t Tx_B_SPI[4] = {0};
+    uint8_t Rx_SPI = 0;
+    uint8_t temp = 0;
+
+    if (size < CHECK_SIZE(addr))
+    {
+        write_data(addr,data,size);
+
+        HAL_GPIO_WritePin(GPIOB,CS,RESET);
+        Tx_B_SPI[0] = RDSR;
+        HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+        HAL_SPI_Receive(&SpiHandle,&Rx_SPI,1,1000);
+        HAL_GPIO_WritePin(GPIOB,CS,SET);         
+
+        if (Rx_SPI&1)
         {
-            addr = 0;
-            write_byte(addr,data[counter]);
+            flag = 1;
         }
-        else
+        
+    }
+    else
+    {   
+        // if ((size + addr) > 4095)
+        // {
+        //     addr = 4095 - size;
+        // }
+
+        if ((size + addr) > 4095)
         {
-            
-            write_byte(addr,data[counter]);
+            size = 4095 - addr;
         }
-        addr += 1;
-        counter++;
-    } 
+        
+
+        flag = 0;
+        temp = CHECK_SIZE(addr);
+        write_data(addr,data,temp);
+        HAL_GPIO_WritePin(GPIOB,CS,RESET);
+        Tx_B_SPI[0] = RDSR;
+        HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+        HAL_SPI_Receive(&SpiHandle,&Rx_SPI,1,1000);
+        HAL_GPIO_WritePin(GPIOB,CS,SET);    
+
+        if (Rx_SPI&1)
+        {
+            flag = 1;
+        }
+
+        data = data + temp;
+        size = size - temp;
+        addr = addr + temp; 
+
+        while (size > CHECK_SIZE(addr))
+        {
+            flag = 0;
+            write_data(addr,data,32);
+            HAL_GPIO_WritePin(GPIOB,CS,RESET);
+            Tx_B_SPI[0] = RDSR;
+            HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+            HAL_SPI_Receive(&SpiHandle,&Rx_SPI,1,1000);
+            HAL_GPIO_WritePin(GPIOB,CS,SET);    
+            size = size - 32;
+            data = data + 32;
+            addr = addr + 32;
+            if (Rx_SPI&1)
+            {
+                flag = 1;
+            }
+        }
+        if (size != 0)
+        {
+            flag = 0;
+            write_data(addr,data,size);
+            HAL_GPIO_WritePin(GPIOB,CS,RESET);
+            Tx_B_SPI[0] = RDSR;
+            HAL_SPI_Transmit_IT(&SpiHandle,Tx_B_SPI,1);
+            HAL_SPI_Receive(&SpiHandle,&Rx_SPI,1,1000);
+            HAL_GPIO_WritePin(GPIOB,CS,SET);    
+            if (Rx_SPI&1)
+            {
+                flag = 1;
+            }
+        }
+    }
+    return flag;
 }
 
 void read_data(uint16_t addr, uint8_t *data, uint8_t size)
 {
     uint16_t counter = 0; 
-    while (counter < size)
-    {
-        if (addr > 4095)
+    if ((size + addr) <= 4095)
+    {   
+        while (counter < size)
         {
-            addr = 0;
-            data[counter] = read_byte(addr);
-        }
-        else
-        {
+            if (addr > 4095)
+            {
+                // addr = 0;
+                // data[counter] = read_byte(addr);
+                break;
+            }
+            else
+            {
+                data[counter] = read_byte(addr);
+                addr += 1;
+                counter++;
+            }
             
-            data[counter] = read_byte(addr);
-        }
-        addr += 1;
-        counter++;
-    } 
+        } 
+    }
 }
 
 HAL_StatusTypeDef correctComand_Write(uint8_t * buffer, uint16_t * addr, uint8_t* byte)
